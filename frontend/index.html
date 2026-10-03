@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>股市脉搏 · 复盘工作台</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">股市脉搏</div>
+    <div class="tstat" id="tb-date">--</div>
+    <div class="tstat" id="tb-turnover">成交额 --</div>
+    <div class="tstat" id="tb-ratio">沪深比 --</div>
+    <div class="tstat" id="tb-emotion">情绪 --</div>
+    <div class="srcstatus" id="srcstatus"></div>
+    <button id="refresh" class="btn">重新抓取</button>
+  </header>
+
+  <main>
+    <section class="ws">
+      <h2 class="ws-title">一 · 盘前外围映射</h2>
+      <div class="cards" id="overseas-cards"></div>
+      <div class="callout" id="premarket">--</div>
+    </section>
+
+    <section class="ws">
+      <h2 class="ws-title">二 · 盘中/复盘 大局与情绪</h2>
+      <div class="grid grid-3">
+        <div class="panel"><h3>资金水位</h3><div class="cards" id="market-cards"></div></div>
+        <div class="panel"><h3>市场情绪</h3><div class="chart gauge" id="chart-emotion"></div></div>
+        <div class="panel"><h3>连板梯队</h3><div class="chart ladder" id="chart-ladder"></div></div>
+      </div>
+      <div class="grid grid-2">
+        <div class="panel"><h3>大盘近60日</h3><div class="chart spark" id="chart-spark"></div></div>
+        <div class="panel"><h3>涨跌分布</h3><div class="chart dist" id="chart-dist"></div></div>
+      </div>
+    </section>
+
+    <section class="ws">
+      <h2 class="ws-title">三 · 主线攻防（行业 → 个股）</h2>
+      <div class="grid grid-3">
+        <div class="panel"><h3>行业榜（同花顺）</h3>
+          <div class="table-wrap short"><table id="industry-table"></table></div></div>
+        <div class="panel"><h3>该行业涨停/强势个股 <span id="ind-name" class="muted"></span></h3>
+          <div class="table-wrap short"><table id="industry-stocks"></table></div></div>
+        <div class="panel"><h3>概念资金流 Top</h3>
+          <div class="table-wrap short"><table id="concept-table"></table></div></div>
+      </div>
+      <div class="panel"><h3>强势股 Top（60日新高/多板）</h3>
+        <div class="table-wrap short"><table id="strong-table"></table></div></div>
+    </section>
+
+    <section class="ws">
+      <h2 class="ws-title">四 · 复盘笔记</h2>
+      <div class="grid grid-2">
+        <div class="panel"><h3>自动复盘</h3><div id="review-qa" class="qa"></div></div>
+        <div class="panel"><h3>我的笔记</h3>
+          <textarea id="note" placeholder="今天的交易心得…"></textarea>
+          <div class="note-actions">
+            <span id="note-status" class="muted"></span>
+            <button class="mini-btn" id="note-save">保存</button>
+            <button class="mini-btn" id="note-export">导出 .md</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ws">
+      <h2 class="ws-title">资金补充</h2>
+      <div class="grid grid-2">
+        <div class="panel"><h3>两融余额（近20日）</h3><div class="chart spark" id="chart-margin"></div></div>
+        <div class="panel"><h3>主力/两融概览</h3><div class="cards" id="capital-cards"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="overlay" id="overlay">正在抓取数据，请稍候…</div>
+  <script src="/static/vendor/echarts.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

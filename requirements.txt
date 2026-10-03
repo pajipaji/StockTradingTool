@@ -1,0 +1,5 @@
+akshare==1.18.88
+pandas>=2.0.0
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pytest>=7.4
