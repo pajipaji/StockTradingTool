@@ -11,6 +11,7 @@ TARGET_INDICES = {
     "sh000300": "沪深300",
     "sh000852": "中证1000",
     "sh000688": "科创50",
+    "sz399303": "国证2000",
 }
 HISTORY_DAYS = 60
 DIST_BUCKETS = [

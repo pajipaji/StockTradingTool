@@ -22,7 +22,12 @@
     <section class="ws">
       <h2 class="ws-title">一 · 盘前外围映射</h2>
       <div class="grid grid-2">
-        <div class="panel"><h3>外围指数</h3><div class="cards" id="overseas-cards"></div></div>
+        <div class="panel"><h3>外围指数</h3>
+          <div class="sub-title">▍ 股市与期指</div>
+          <div class="cards" id="overseas-market"></div>
+          <div class="sub-title">▍ 港股 / 大宗 / 汇率</div>
+          <div class="cards" id="overseas-other"></div>
+        </div>
         <div class="panel"><h3>美股行业映射</h3>
           <div class="table-wrap short"><table id="us-sector-table"></table></div></div>
       </div>
@@ -35,6 +40,8 @@
         <div class="panel">
           <h3>资金水位与交易风格</h3>
           <div class="cards compact" id="market-cards"></div>
+          <h4 class="sub-title">今日风格偏好（市值与板块梯度）</h4>
+          <div class="style-bars" id="style-bars"></div>
         </div>
         <div class="panel">
           <h3>市场情绪温度计</h3>

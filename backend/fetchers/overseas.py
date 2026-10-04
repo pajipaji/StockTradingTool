@@ -8,6 +8,18 @@ from backend.core.units import pct
 
 US_INDICES = {".DJI": "道琼斯", ".IXIC": "纳斯达克", ".INX": "标普500"}
 FUTURE_KEYS = ("A50期指当月连续", "小型标普当月连续")
+COMMODITIES = (("COMEX黄金", "COMEX黄金"), ("NYMEX原油", "WTI原油"))
+_MONTH = {"F": 1, "G": 2, "H": 3, "J": 4, "K": 5, "M": 6,
+          "N": 7, "Q": 8, "U": 9, "V": 10, "X": 11, "Z": 12}
+
+
+def _contract_key(code: str):
+    if code.endswith("00Y"):
+        return -1
+    try:
+        return int(code[2:4]) * 12 + _MONTH.get(code[4], 13)
+    except (ValueError, IndexError):
+        return 9999
 HK_CODES = {"HSI": "恒生指数", "HSTECH": "恒生科技指数", "HSCEI": "恒生国企指数", "HSCCI": "恒生中资企业指数"}
 US_SECTORS = [
     ("XLK", "信息技术", "半导体/算力/CPO"),
@@ -73,6 +85,19 @@ def fetch_overseas() -> dict:
                 "change_pct": pct(row.get("涨跌幅")),
             })
 
+    commodities = []
+    for substr, label in COMMODITIES:
+        sub = fdf[fdf["名称"].astype(str).str.contains(substr, na=False)]
+        if sub.empty:
+            continue
+        sub = sub.assign(_k=sub["代码"].astype(str).map(_contract_key)).sort_values("_k")
+        row = sub.iloc[0]
+        commodities.append({
+            "code": str(row["代码"]), "name": label,
+            "price": float(row["最新价"]) if row["最新价"] == row["最新价"] else None,
+            "change_pct": pct(row.get("涨跌幅")),
+        })
+
     hkdf = fetch(ak.stock_hk_index_spot_sina, source="sina")
     hk_indices = []
     for _, row in hkdf.iterrows():
@@ -99,11 +124,15 @@ def fetch_overseas() -> dict:
         fdf2 = fetch(ak.currency_boc_sina, symbol="美元",
                      start_date=start.strftime("%Y%m%d"), end_date=end.strftime("%Y%m%d"), source="sina")
         if not fdf2.empty:
-            last = fdf2.iloc[-1]
-            mid = float(last["央行中间价"])
-            if math.isfinite(mid):
-                usd_cny = {"date": str(last["日期"]), "mid": mid,
-                           "note": "中行牌价(代理，非离岸CNH)"}
+            for _, row in fdf2.iloc[::-1].iterrows():
+                try:
+                    fv = float(row.get("央行中间价"))
+                except (TypeError, ValueError):
+                    continue
+                if math.isfinite(fv):
+                    usd_cny = {"date": str(row["日期"]), "mid": round(fv / 100, 4),
+                               "note": "中行牌价(代理，非离岸CNH)"}
+                    break
     except Exception:
         usd_cny = {}
 
@@ -113,5 +142,5 @@ def fetch_overseas() -> dict:
                         "change_pct": sox.get("change_pct"), "a_share": "芯片封测/半导体设备/CPO"})
 
     return {"as_of": as_of, "us_indices": us_indices, "futures": futures,
-            "hk_indices": hk_indices, "sox": sox, "usd_cny": usd_cny,
-            "us_sectors": sectors}
+            "hk_indices": hk_indices, "commodities": commodities,
+            "sox": sox, "usd_cny": usd_cny, "us_sectors": sectors}

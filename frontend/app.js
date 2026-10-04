@@ -46,15 +46,19 @@ function renderTopbar(snap){
 /* 工作区一 */
 function renderOverseas(s){
   renderUsSectors(s);
-  const box=document.getElementById("overseas-cards");
-  if(s.error){ box.innerHTML=err(s.error); return; }
-  let html="";
-  (s.us_indices||[]).forEach(i=>html+=card(i.name,fmt(i.close),fmtPct(i.change_pct),cls(i.change_pct)));
-  (s.futures||[]).forEach(f=>html+=card(f.name,fmt(f.price),fmtPct(f.change_pct),cls(f.change_pct)));
-  (s.hk_indices||[]).filter(h=>h.code==="HSTECH"||h.code==="HSI").forEach(h=>html+=card(h.name+"(代理)",fmt(h.price),fmtPct(h.change_pct),cls(h.change_pct)));
-  if(s.sox&&num(s.sox.value)!==null) html+=card("费城半导体",fmt(s.sox.value),fmtPct(s.sox.change_pct),cls(s.sox.change_pct));
-  if(s.usd_cny&&num(s.usd_cny.mid)!==null) html+=card("美元(中行代理)",fmt(s.usd_cny.mid,4),"", "");
-  box.innerHTML=html;
+  const mk=document.getElementById("overseas-market"), ot=document.getElementById("overseas-other");
+  if(s.error){ mk.innerHTML=err(s.error); ot.innerHTML=""; return; }
+  let h1="";
+  (s.us_indices||[]).forEach(i=>h1+=card(i.name,fmt(i.close),fmtPct(i.change_pct),cls(i.change_pct)));
+  if(s.sox&&num(s.sox.value)!==null) h1+=card("费城半导体",fmt(s.sox.value),fmtPct(s.sox.change_pct),cls(s.sox.change_pct));
+  (s.futures||[]).filter(f=>String(f.name).includes("A50")).forEach(f=>h1+=card("A50期指",fmt(f.price),fmtPct(f.change_pct),cls(f.change_pct)));
+  mk.innerHTML=h1;
+
+  let h2="";
+  (s.hk_indices||[]).filter(h=>h.code==="HSI"||h.code==="HSTECH").forEach(h=>h2+=card(h.name,fmt(h.price),fmtPct(h.change_pct),cls(h.change_pct)));
+  (s.commodities||[]).forEach(c=>h2+=card(c.name,fmt(c.price),fmtPct(c.change_pct),cls(c.change_pct)));
+  if(s.usd_cny&&num(s.usd_cny.mid)!==null) h2+=card("离岸人民币(代理)",fmt(s.usd_cny.mid,4),"", "");
+  ot.innerHTML=h2;
 }
 function renderUsSectors(s){
   const t=document.getElementById("us-sector-table");
@@ -75,8 +79,32 @@ function renderMarket(s){
     card("上涨/下跌", `${b.up??"--"}/${b.down??"--"}`, "") +
     card("涨停/跌停", `${b.limit_up??"--"}/${b.limit_down??"--"}`, "");
 }
-function renderEmotionExtra(aIndex, st, ld){
-  const box=document.getElementById("emotion-extra");
+const STYLE_INDICES = [
+  ["sh000300", "沪深300"],
+  ["sz399006", "创业板指"],
+  ["sh000852", "中证1000"],
+  ["sz399303", "国证2000"],
+];
+function renderStyle(a){
+  const box=document.getElementById("style-bars");
+  if(!box) return;
+  if(a.error){ box.innerHTML=err(a.error); return; }
+  const by={}; (a.indices||[]).forEach(i=>by[i.code]=i);
+  const rows=STYLE_INDICES.map(([code,label])=>({label, c:num((by[code]||{}).change_pct)}));
+  const max=Math.max(0.01, ...rows.map(r=>Math.abs(r.c||0)));
+  const big=rows[0].c, small=rows[rows.length-1].c;
+  box.innerHTML=rows.map(r=>{
+    const w = r.c==null ? 0 : Math.max(3, Math.round(Math.abs(r.c)/max*100));
+    const color = r.c>0?"#ff4d4f":(r.c<0?"#22c55e":"#8b93a7");
+    return `<div class="style-row"><span class="lbl">${esc(r.label)}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${w}%;background:${color}"></span></span>
+      <span class="pct ${cls(r.c)}">${fmtPct(r.c)}</span></div>`;
+  }).join("") +
+    (big!=null&&small!=null
+      ? `<div class="style-note">${small>big?"◀ 资金偏小盘（题材/小票占优）":(small<big?"◀ 资金偏大盘（权重/蓝筹占优）":"风格均衡")}</div>`
+      : "");
+}
+function renderEmotionExtra(aIndex, st, ld){  const box=document.getElementById("emotion-extra");
   const b=aIndex.breadth||{};
   const eff = (b.up!=null&&b.down!=null&&(b.up+b.down)>0) ? Math.round(b.up/(b.up+b.down)*100) : null;
   const zb = num(st.zbgc_rate);
@@ -261,6 +289,7 @@ function renderAll(snap){
   renderTopbar(snap);
   renderOverseas(snap.overseas||{});
   renderMarket(snap.a_index||{});
+  renderStyle(snap.a_index||{});
   renderEmotionExtra(snap.a_index||{}, snap.sentiment||{}, snap.leaders||{});
   renderEmotion(snap.sentiment||{});
   renderLadder(snap.leaders||{});
