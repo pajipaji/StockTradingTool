@@ -21,6 +21,12 @@ DIST_BUCKETS = [
 ]
 
 
+def _ma(values, n):
+    if len(values) < n:
+        return None
+    return round(sum(values[-n:]) / n, 2)
+
+
 def _distribution(spot_df) -> list:
     values = []
     for v in spot_df["涨跌幅"]:
@@ -93,8 +99,16 @@ def fetch_a_index() -> dict:
         dates = [h["date"] for h in history["sh000001"]]
         prev_date = dates[-2] if len(dates) >= 2 else dates[-1]
 
+    ma = {"ma20": None, "ma60": None, "bias60": None}
+    if history.get("sh000001"):
+        closes = [h["close"] for h in history["sh000001"]]
+        ma20, ma60 = _ma(closes, 20), _ma(closes, 60)
+        close = closes[-1]
+        ma = {"ma20": ma20, "ma60": ma60,
+              "bias60": round((close - ma60) / ma60 * 100, 2) if ma60 else None}
+
     return {
         "as_of": history.get("sh000001", [{}])[-1].get("date") if history.get("sh000001") else None,
         "prev_date": prev_date, "indices": indices, "history": history,
-        "turnover": turnover, "breadth": breadth,
+        "turnover": turnover, "breadth": breadth, "ma": ma,
     }

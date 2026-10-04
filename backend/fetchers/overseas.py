@@ -9,6 +9,37 @@ from backend.core.units import pct
 US_INDICES = {".DJI": "道琼斯", ".IXIC": "纳斯达克", ".INX": "标普500"}
 FUTURE_KEYS = ("A50期指当月连续", "小型标普当月连续")
 HK_CODES = {"HSI": "恒生指数", "HSTECH": "恒生科技指数", "HSCEI": "恒生国企指数", "HSCCI": "恒生中资企业指数"}
+US_SECTORS = [
+    ("XLK", "信息技术", "半导体/算力/CPO"),
+    ("XLC", "通信服务", "传媒/游戏/云计算"),
+    ("XLY", "非必需消费", "消费电子/汽车/免税"),
+    ("XLP", "必需消费", "食品饮料/白酒"),
+    ("XLF", "金融", "银行/保险/券商"),
+    ("XLV", "医疗保健", "创新药/CXO/医疗器械"),
+    ("XLI", "工业", "工程机械/机器人/军工"),
+    ("XLE", "能源", "石油石化/煤炭"),
+    ("XLB", "原材料", "有色/化工/钢铁"),
+    ("XLU", "公用事业", "电力/水务"),
+    ("XLRE", "房地产", "地产/建材"),
+]
+
+
+def _us_sectors() -> list:
+    rows = []
+    for etf, name, a_share in US_SECTORS:
+        try:
+            df = fetch(ak.stock_us_daily, symbol=etf, source="sina")
+        except Exception:
+            continue
+        if df is None or df.empty:
+            continue
+        last = df.iloc[-1]
+        prev = float(df.iloc[-2]["close"]) if len(df) >= 2 else float(last["close"])
+        close = float(last["close"])
+        rows.append({"etf": etf, "name": name,
+                     "change_pct": pct((close - prev) / prev * 100) if prev else None,
+                     "a_share": a_share})
+    return rows
 
 
 def _us_indices():
@@ -76,5 +107,11 @@ def fetch_overseas() -> dict:
     except Exception:
         usd_cny = {}
 
+    sectors = _us_sectors()
+    if sox and sox.get("change_pct") is not None:
+        sectors.append({"etf": "SOX", "name": "费城半导体",
+                        "change_pct": sox.get("change_pct"), "a_share": "芯片封测/半导体设备/CPO"})
+
     return {"as_of": as_of, "us_indices": us_indices, "futures": futures,
-            "hk_indices": hk_indices, "sox": sox, "usd_cny": usd_cny}
+            "hk_indices": hk_indices, "sox": sox, "usd_cny": usd_cny,
+            "us_sectors": sectors}

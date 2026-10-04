@@ -45,6 +45,7 @@ function renderTopbar(snap){
 
 /* 工作区一 */
 function renderOverseas(s){
+  renderUsSectors(s);
   const box=document.getElementById("overseas-cards");
   if(s.error){ box.innerHTML=err(s.error); return; }
   let html="";
@@ -54,39 +55,44 @@ function renderOverseas(s){
   if(s.sox&&num(s.sox.value)!==null) html+=card("费城半导体",fmt(s.sox.value),fmtPct(s.sox.change_pct),cls(s.sox.change_pct));
   if(s.usd_cny&&num(s.usd_cny.mid)!==null) html+=card("美元(中行代理)",fmt(s.usd_cny.mid,4),"", "");
   box.innerHTML=html;
-
-  const by={}; (s.futures||[]).forEach(f=>by[f.name]=num(f.change_pct));
-  const a50=num(by["A50期指当月连续"]);
-  const hst=(s.hk_indices||[]).find(h=>h.code==="HSTECH");
-  const sox=num(s.sox&&s.sox.change_pct);
-  const parts=[]; if(a50!==null)parts.push(`A50期指 ${fmtPct(a50)}`);
-  if(hst)parts.push(`恒生科技(代理) ${fmtPct(hst.change_pct)}`); if(sox!==null)parts.push(`费半 ${fmtPct(sox)}`);
-  const sig=[a50,sox,hst?num(hst.change_pct):null].filter(v=>v!==null);
-  const net = sig.length? sig.reduce((x,y)=>x+y,0)/sig.length : null;
-  const mood = net===null?"外围数据不足": net>0.3?"外围偏暖，A股开盘有望高开": net<-0.3?"外围偏冷，防低开": "外围分化，开盘看资金选择";
-  document.getElementById("premarket").innerHTML = `${parts.join(" · ")} → <b>${mood}</b>`;
+}
+function renderUsSectors(s){
+  const t=document.getElementById("us-sector-table");
+  if(s.error){ t.innerHTML=`<tbody><tr><td class="error">${esc(s.error)}</td></tr></tbody>`; return; }
+  const rows=(s.us_sectors||[]).map(x=>`<tr><td>${esc(x.name)}</td>
+    <td class="${cls(x.change_pct)}">${fmtPct(x.change_pct)}</td><td class="muted">${esc(x.a_share)}</td></tr>`).join("");
+  t.innerHTML=`<thead><tr><th>美股行业</th><th>涨跌幅</th><th>A股映射</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 /* 工作区二 */
 function renderMarket(s){
   const box=document.getElementById("market-cards");
   if(s.error){ box.innerHTML=err(s.error); return; }
-  const t=s.turnover||{}, b=s.breadth||{};
-  const d=num(t.delta);
+  const t=s.turnover||{}, b=s.breadth||{}, d=num(t.delta);
   box.innerHTML =
-    card("两市成交额",fmtYi(t.total), d===null?"":`${d>0?"放量":"缩量"} ${fmtYi(Math.abs(d))}`) +
-    card("上涨/下跌",`${b.up??"--"}/${b.down??"--"}`,"") +
-    card("涨停/跌停",`${b.limit_up??"--"}/${b.limit_down??"--"}`,"");
+    card("两市成交额", fmtYi(t.total), (t.ma5!=null?`MA5 ${fmtYi(t.ma5)}`:"")) +
+    card("较上日增减", d===null?"--":`${d>0?"+":""}${fmtYi(Math.abs(d))}`, d===null?"":(d>0?"放量":"缩量"), cls(d)) +
+    card("上涨/下跌", `${b.up??"--"}/${b.down??"--"}`, "") +
+    card("涨停/跌停", `${b.limit_up??"--"}/${b.limit_down??"--"}`, "");
+}
+function renderEmotionExtra(aIndex, st, ld){
+  const box=document.getElementById("emotion-extra");
+  const b=aIndex.breadth||{};
+  const eff = (b.up!=null&&b.down!=null&&(b.up+b.down)>0) ? Math.round(b.up/(b.up+b.down)*100) : null;
+  const zb = num(st.zbgc_rate);
+  box.innerHTML =
+    `<span class="pill">炸板率 <b>${zb===null?"--":(zb*100).toFixed(0)+"%"}</b></span>`+
+    `<span class="pill">突破新高 <b>${ld.new_high_count??"--"} 家</b></span>`+
+    `<span class="pill">赚钱效应 <b>${eff===null?"--":eff+"%"}</b></span>`;
 }
 function renderLadder(s){
-  if(s.error||!s.boards_ladder) return;
-  const d=s.boards_ladder||[];
-  chart("chart-ladder").setOption({
-    tooltip:{trigger:"axis"}, grid:{left:36,right:12,top:10,bottom:22},
-    xAxis:{type:"category",data:d.map(x=>`${x.boards}板`),...AXIS},
-    yAxis:{type:"value",...AXIS},
-    series:[{type:"bar",data:d.map(x=>x.count),itemStyle:{color:"#f5c451"}}]
-  });
+  const box=document.getElementById("ladder-cards");
+  if(s.error){ box.innerHTML=err(s.error); return; }
+  const d=(s.boards_ladder||[]).slice().sort((a,b)=>b.boards-a.boards);
+  box.innerHTML=d.map(r=>{
+    const stk=(r.stocks||[]).map(x=>`<span class="stk">${esc(x.name)}${x.seal_time?`(${esc(x.seal_time.slice(0,4))})`:""}</span>`).join("");
+    return `<div class="rung"><div class="rung-head">${r.boards} 板 · ${r.count} 家</div><div>${stk||"--"}</div></div>`;
+  }).join("") || `<span class="muted">今日无涨停</span>`;
 }
 function renderEmotion(s){
   if(s.error) return;
@@ -103,11 +109,20 @@ function renderEmotion(s){
 function renderSpark(s){
   if(s.error) return;
   const hist=(s.history&&s.history["sh000001"])||[];
+  const closes=hist.map(h=>h.close);
+  const ma=(n)=>closes.map((_,i)=> i>=n-1 ? +(closes.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n).toFixed(2) : null);
+  const m=s.ma||{};
   chart("chart-spark").setOption({
-    tooltip:{trigger:"axis"}, grid:{left:44,right:10,top:10,bottom:20},
+    title:{text:`上证指数 近60日 · 乖离(MA60) ${fmtPct(m.bias60)}`.replace("--",""),textStyle:{color:"#8b93a7",fontSize:11}},
+    tooltip:{trigger:"axis"}, grid:{left:48,right:12,top:32,bottom:20},
     xAxis:{type:"category",data:hist.map(h=>h.date),...AXIS,axisLabel:{show:false}},
     yAxis:{type:"value",scale:true,...AXIS},
-    series:[{type:"line",data:hist.map(h=>h.close),smooth:true,showSymbol:false,lineStyle:{color:"#3b82f6",width:2},areaStyle:{color:"rgba(59,130,246,.15)"}}]
+    legend:{show:false},
+    series:[
+      {type:"line",name:"收盘",data:closes,smooth:true,showSymbol:false,lineStyle:{color:"#3b82f6",width:2},
+        markLine:{silent:true,symbol:"none",data:[{yAxis:m.ma60,lineStyle:{color:"#8b93a7",type:"dashed"},label:{formatter:"MA60",color:"#8b93a7"}}]}},
+      {type:"line",name:"MA20",data:ma(20),showSymbol:false,lineStyle:{color:"#f5c451",width:1}}
+    ]
   });
 }
 function renderDist(s){
@@ -165,9 +180,10 @@ function renderConcepts(snap){
 function renderStrong(snap){
   const ld=snap.leaders||{}, t=document.getElementById("strong-table");
   if(ld.error){ t.innerHTML=`<tbody><tr><td class="error">${esc(ld.error)}</td></tr></tbody>`; return; }
-  const rows=(ld.strong_pool_top||[]).map(s=>`<tr><td>${esc(s.name)}</td><td class="up">${fmtPct(s.change_pct)}</td>
-    <td>${esc(s.industry)}</td><td class="muted">${esc(s.tag)}</td></tr>`).join("");
-  t.innerHTML=`<thead><tr><th>个股</th><th>涨幅</th><th>行业</th><th>入选理由</th></tr></thead><tbody>${rows}</tbody>`;
+  const rows=(ld.strong_pool_top||[]).map(s=>`<tr><td>${esc(s.name)}</td><td>${fmt(s.price)}</td>
+    <td class="${cls(s.change_pct)}">${fmtPct(s.change_pct)}</td><td>${esc(s.zt_stat||"")}</td>
+    <td>${num(s.turnover)==null?"--":fmt(s.turnover)+"%"}</td><td>${esc(s.industry)}</td></tr>`).join("");
+  t.innerHTML=`<thead><tr><th>个股</th><th>最新价</th><th>涨幅</th><th>涨停统计</th><th>换手</th><th>行业</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 /* 工作区四 */
@@ -193,19 +209,38 @@ function renderReview(snap){
 
 /* 资金补充 */
 function renderCapital(snap){
-  const box=document.getElementById("capital-cards");
   const s=snap.capital||{};
+  const box=document.getElementById("capital-cards");
   if(s.error){ box.innerHTML=err(s.error); return; }
+  const d=num(s.fin_net_today);
   box.innerHTML =
-    card("主力净流入", s.main_net_inflow==null?"--":`${s.main_net_inflow>0?"+":""}${fmtYi(s.main_net_inflow)}`, "", cls(s.main_net_inflow))+
-    card("两融余额", fmtYi(s.margin_total), "");
+    card("两融总余额", fmtYi(s.margin_total), "") +
+    card("融资净买入", d===null?"--":`${d>0?"+":""}${fmtYi(Math.abs(d))}`, "较前一日", cls(d)) +
+    card("融券余额", (s.margin_history&&s.margin_history.length)?fmtYi(s.margin_history.at(-1).sec_balance):"--", "") +
+    card("北向(个股)", "已停止披露", "");
+
   const h=s.margin_history||[];
   if(h.length) chart("chart-margin").setOption({
-    tooltip:{trigger:"axis"}, grid:{left:56,right:10,top:10,bottom:20},
+    tooltip:{trigger:"axis"}, legend:{show:true,textStyle:{color:"#8b93a7"},top:0},
+    grid:{left:64,right:64,top:32,bottom:20},
     xAxis:{type:"category",data:h.map(x=>x.date),...AXIS,axisLabel:{show:false}},
-    yAxis:{type:"value",scale:true,...AXIS},
-    series:[{type:"line",data:h.map(x=>x.balance),showSymbol:false,lineStyle:{color:"#f5c451",width:2}}]
+    yAxis:[{type:"value",scale:true,name:"融资(亿)",...AXIS},{type:"value",scale:true,name:"融券(亿)",...AXIS}],
+    series:[
+      {name:"融资余额",type:"line",data:h.map(x=>x.fin_balance),showSymbol:false,lineStyle:{color:"#ff4d4f",width:2}},
+      {name:"融券余额",type:"line",yAxisIndex:1,data:h.map(x=>x.sec_balance),showSymbol:false,lineStyle:{color:"#22c55e",width:2}}
+    ]
   });
+  const trow=(x,last)=>`<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${fmt(x.price)}</td>
+    <td class="${cls(x.change_pct)}">${fmtPct(x.change_pct)}</td><td>${fmt(last==="sec_sell"?x.sec_sell:x.net_buy)}</td></tr>`;
+  const buy=document.getElementById("fin-buy-table"), sell=document.getElementById("fin-sell-table"), north=document.getElementById("north-table");
+  buy.innerHTML=`<thead><tr><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>融资净买入(亿)</th></tr></thead><tbody>`+
+    (s.fin_buy_top||[]).map(x=>trow(x,"net_buy")).join("")+`</tbody>`;
+  sell.innerHTML=`<thead><tr><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>融券卖出量</th></tr></thead><tbody>`+
+    (s.fin_sell_top||[]).map(x=>trow(x,"sec_sell")).join("")+`</tbody>`;
+  const nrows=(s.northbound_active_top||[]).length
+    ? (s.northbound_active_top||[]).map(x=>`<tr><td>${esc(x.code||"")}</td><td>${esc(x.name||"")}</td><td>${fmt(x.price)}</td><td class="${cls(x.change_pct)}">${fmtPct(x.change_pct)}</td><td>${fmt(x.net_buy)}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="muted">北向个股活跃成交数据已停止披露</td></tr>`;
+  north.innerHTML=`<thead><tr><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>净成交(亿)</th></tr></thead><tbody>${nrows}</tbody>`;
 }
 
 /* 笔记 */
@@ -226,6 +261,7 @@ function renderAll(snap){
   renderTopbar(snap);
   renderOverseas(snap.overseas||{});
   renderMarket(snap.a_index||{});
+  renderEmotionExtra(snap.a_index||{}, snap.sentiment||{}, snap.leaders||{});
   renderEmotion(snap.sentiment||{});
   renderLadder(snap.leaders||{});
   renderSpark(snap.a_index||{});

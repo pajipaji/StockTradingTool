@@ -37,6 +37,10 @@ def test_fetch_overseas(monkeypatch):
     monkeypatch.setattr(mod.ak, "stock_hk_index_spot_sina", lambda: hk)
     monkeypatch.setattr(mod.ak, "macro_global_sox_index", lambda: sox)
     monkeypatch.setattr(mod.ak, "currency_boc_sina", lambda **k: fx)
+    monkeypatch.setattr(mod.ak, "stock_us_daily", lambda symbol: pd.DataFrame([
+        {"date": "2026-10-01", "open": 1, "high": 1, "low": 1, "close": 100.0, "volume": 1},
+        {"date": "2026-10-02", "open": 1, "high": 1, "low": 1, "close": 101.0, "volume": 1},
+    ]))
 
     out = fetch_overseas()
     assert next(i for i in out["us_indices"] if i["code"] == ".DJI")["change_pct"] == 1.0
@@ -63,8 +67,34 @@ def test_fetch_overseas_nan_mid(monkeypatch):
     monkeypatch.setattr(mod.ak, "stock_hk_index_spot_sina", lambda: hk)
     monkeypatch.setattr(mod.ak, "macro_global_sox_index", lambda: sox)
     monkeypatch.setattr(mod.ak, "currency_boc_sina", lambda **k: fx)
+    monkeypatch.setattr(mod.ak, "stock_us_daily", lambda symbol: pd.DataFrame([
+        {"date": "2026-10-01", "open": 1, "high": 1, "low": 1, "close": 100.0, "volume": 1},
+        {"date": "2026-10-02", "open": 1, "high": 1, "low": 1, "close": 101.0, "volume": 1},
+    ]))
 
     out = fetch_overseas()
     usd_cny = out["usd_cny"]
     assert usd_cny == {} or usd_cny.get("mid") is None
     assert not (isinstance(usd_cny.get("mid"), float) and math.isnan(usd_cny["mid"]))
+
+
+def test_us_sectors(monkeypatch):
+    import backend.fetchers.overseas as m
+    import backend.core.fetch as fm
+    from backend.core.ratelimit import RateLimiter
+    fm.reset_cache(); fm.LIMITER = RateLimiter(min_interval=0.0)
+    import pandas as pd
+    def daily(symbol):
+        return pd.DataFrame([{"date":"2026-10-01","open":1,"high":1,"low":1,"close":100.0,"volume":1},
+                             {"date":"2026-10-02","open":1,"high":1,"low":1,"close":102.0,"volume":1}])
+    monkeypatch.setattr(m.ak,"index_us_stock_sina", lambda symbol: daily(symbol))
+    monkeypatch.setattr(m.ak,"futures_global_spot_em", lambda: pd.DataFrame([{"代码":"CN00Y","名称":"A50期指当月连续","最新价":1.0,"涨跌幅":0.1}]))
+    monkeypatch.setattr(m.ak,"stock_hk_index_spot_sina", lambda: pd.DataFrame([{"代码":"HSI","名称":"恒生指数","最新价":1.0,"涨跌幅":-1.0}]))
+    monkeypatch.setattr(m.ak,"macro_global_sox_index", lambda: pd.DataFrame([{"日期":"2026-10-02","最新值":100.0,"涨跌幅":2.4}]))
+    monkeypatch.setattr(m.ak,"currency_boc_sina", lambda **k: pd.DataFrame([{"日期":"2026-10-03","央行中间价":7.1}]))
+    monkeypatch.setattr(m.ak,"stock_us_daily", daily)
+    out = m.fetch_overseas()
+    etfs = {s["etf"] for s in out["us_sectors"]}
+    assert "XLK" in etfs and "XLV" in etfs and "SOX" in etfs
+    xlk = next(s for s in out["us_sectors"] if s["etf"] == "XLK")
+    assert xlk["change_pct"] == 2.0 and xlk["a_share"]

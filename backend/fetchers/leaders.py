@@ -1,5 +1,3 @@
-from collections import Counter
-
 import akshare as ak
 
 from backend.core.fetch import fetch
@@ -75,17 +73,36 @@ def fetch_leaders() -> dict:
 
     boards_ladder = []
     if len(zt) and "连板数" in zt.columns:
-        counter = Counter(int(v) for v in zt["连板数"] if v == v)
-        boards_ladder = [{"boards": b, "count": c} for b, c in sorted(counter.items())]
+        by_board = {}
+        for _, r in zt.iterrows():
+            b = _int_or_none(r.get("连板数"))
+            if b is None:
+                continue
+            by_board.setdefault(b, []).append({
+                "name": str(r["名称"]), "seal_time": str(r.get("首次封板时间", "") or ""),
+                "seal_amount": _num(r.get("封板资金"), 0), "tag": "涨停"})
+        boards_ladder = [
+            {"boards": b, "count": len(v),
+             "stocks": sorted(v, key=lambda x: -(x["seal_amount"] or 0))[:10]}
+            for b, v in sorted(by_board.items())
+        ]
 
     strong_pool_top = []
     if len(strong):
         for _, r in strong.sort_values("涨跌幅", ascending=False).head(STRONG_TOP).iterrows():
             strong_pool_top.append({
                 "code": str(r["代码"]), "name": str(r["名称"]),
+                "price": _num(r.get("最新价")),
                 "change_pct": _num(r.get("涨跌幅")),
+                "zt_stat": str(r.get("涨停统计", "")),
+                "turnover": _num(r.get("换手率")),
                 "industry": str(r.get("所属行业", "")), "tag": str(r.get("入选理由", ""))[:20],
             })
 
+    new_high_count = 0
+    if len(strong) and "是否新高" in strong.columns:
+        new_high_count = int((strong["是否新高"].astype(str) == "是").sum())
+
     return {"as_of": date, "by_industry": by_industry_list,
-            "boards_ladder": boards_ladder, "strong_pool_top": strong_pool_top}
+            "boards_ladder": boards_ladder, "strong_pool_top": strong_pool_top,
+            "new_high_count": new_high_count}

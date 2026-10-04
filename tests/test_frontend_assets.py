@@ -23,6 +23,20 @@ def test_index_v3_structure():
     assert 'id="chart-emotion"' in html
 
 
+def test_index_v4_structure():
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for marker in ('id="us-sector-table"', 'id="ladder-cards"', 'id="fin-buy-table"'):
+        assert marker in html, marker
+
+
+def test_index_v5_structure():
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for marker in ('id="us-sector-table"', 'id="ladder-cards"', 'id="emotion-extra"',
+                   'id="fin-buy-table"', 'id="fin-sell-table"', 'id="north-table"'):
+        assert marker in html, marker
+    assert 'id="premarket"' not in html
+
+
 def test_style_has_tokens():
     css = (ROOT / "frontend" / "style.css").read_text(encoding="utf-8")
     for token in ("#0e1117", "#161b26", "#1e2430", "#2a3141", "#e6e9ef",

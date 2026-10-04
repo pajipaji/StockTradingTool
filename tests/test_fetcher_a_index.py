@@ -41,3 +41,23 @@ def test_fetch_a_index(monkeypatch):
     assert buckets["≤-7%"] == 1 and buckets["≥7%"] == 1
     assert out["history"]["sh000001"][-1]["close"] == 3880.5
     assert out["turnover"]["sh"] == 6759.46
+
+
+def test_ma(monkeypatch):
+    import backend.fetchers.a_index as m, backend.core.fetch as fm
+    from backend.core.ratelimit import RateLimiter
+    import pandas as pd
+    fm.reset_cache(); fm.LIMITER = RateLimiter(min_interval=0.0)
+    n = 70
+    hist = pd.DataFrame([{"date": f"2026-0{1+(i//28)}-{1+i%28:02d}", "open": 1, "high": 1, "low": 1,
+                          "close": float(100 + i), "volume": 1} for i in range(n)])
+    monkeypatch.setattr(m.ak, "stock_zh_index_spot_sina", lambda: pd.DataFrame([{"代码":"sh000001","名称":"上证指数","最新价":169.0,"涨跌额":1,"涨跌幅":1,"成交量":1,"成交额":1}]))
+    monkeypatch.setattr(m.ak, "stock_zh_index_daily", lambda symbol: hist)
+    monkeypatch.setattr(m.ak, "stock_market_activity_legu", lambda: pd.DataFrame([{"item":"上涨","value":1}]))
+    monkeypatch.setattr(m.ak, "stock_sse_deal_daily", lambda: pd.DataFrame([{"单日情况":"成交金额","股票":1.0}]))
+    monkeypatch.setattr(m.ak, "stock_zh_a_spot", lambda: pd.DataFrame([{"代码":"sz000001","涨跌幅":1.0}]))
+    out = m.fetch_a_index()
+    # closes 100..169, ma20 = mean(150..169)=159.5, ma60=mean(110..169)=139.5
+    assert out["ma"]["ma20"] == 159.5
+    assert out["ma"]["ma60"] == 139.5
+    assert out["ma"]["bias60"] is not None

@@ -25,31 +25,24 @@ def _today() -> str:
     return dt.date.today().isoformat()
 
 
-def _prev_date(data_dir: Path, date: str) -> str | None:
-    candidates = []
-    for p in Path(data_dir).glob("????-??-??.json"):
-        name = p.stem
-        if name < date:
-            candidates.append(name)
-    return max(candidates) if candidates else None
-
-
 def _attach_turnover_delta(snapshot: dict, data_dir: Path, date: str) -> None:
     section = snapshot.get("a_index")
-    if not isinstance(section, dict) or "turnover" not in section:
+    if not isinstance(section, dict) or not isinstance(section.get("turnover"), dict):
         return
     turnover = section["turnover"]
-    prev = _prev_date(data_dir, date)
-    prev_total = None
-    if prev is not None:
-        prev_snap = load_snapshot(data_dir, prev)
-        if prev_snap and isinstance(prev_snap.get("a_index"), dict):
-            prev_total = (prev_snap["a_index"].get("turnover") or {}).get("total")
-    turnover["prev_total"] = prev_total
-    if prev_total is not None and turnover.get("total") is not None:
-        turnover["delta"] = round(turnover["total"] - prev_total, 2)
-    else:
-        turnover["delta"] = None
+    totals = []
+    recent = [p for p in sorted(Path(data_dir).glob("????-??-??.json")) if p.stem < date][-10:]
+    for p in recent:
+        snap = load_snapshot(data_dir, p.stem)
+        t = ((snap or {}).get("a_index") or {}).get("turnover") or {}
+        if isinstance(t, dict) and t.get("total") is not None:
+            totals.append(t["total"])
+    cur = turnover.get("total")
+    series = totals + ([cur] if cur is not None else [])
+    turnover["prev_total"] = totals[-1] if totals else None
+    turnover["delta"] = round(cur - totals[-1], 2) if (cur is not None and totals) else None
+    turnover["ma5"] = round(sum(series[-5:]) / 5, 2) if len(series) >= 5 else None
+    turnover["ma10"] = round(sum(series[-10:]) / 10, 2) if len(series) >= 10 else None
 
 
 def build_snapshot(fetchers: dict, data_dir: Path, date: str | None = None) -> dict:

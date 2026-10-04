@@ -18,25 +18,41 @@
   </header>
 
   <main>
+    <!-- 工作区一：左右两列 -->
     <section class="ws">
       <h2 class="ws-title">一 · 盘前外围映射</h2>
-      <div class="cards" id="overseas-cards"></div>
-      <div class="callout" id="premarket">--</div>
+      <div class="grid grid-2">
+        <div class="panel"><h3>外围指数</h3><div class="cards" id="overseas-cards"></div></div>
+        <div class="panel"><h3>美股行业映射</h3>
+          <div class="table-wrap short"><table id="us-sector-table"></table></div></div>
+      </div>
     </section>
 
+    <!-- 工作区二：上三栏 + 下双栏 -->
     <section class="ws">
       <h2 class="ws-title">二 · 盘中/复盘 大局与情绪</h2>
       <div class="grid grid-3">
-        <div class="panel"><h3>资金水位</h3><div class="cards" id="market-cards"></div></div>
-        <div class="panel"><h3>市场情绪</h3><div class="chart gauge" id="chart-emotion"></div></div>
-        <div class="panel"><h3>连板梯队</h3><div class="chart ladder" id="chart-ladder"></div></div>
+        <div class="panel">
+          <h3>资金水位与交易风格</h3>
+          <div class="cards compact" id="market-cards"></div>
+        </div>
+        <div class="panel">
+          <h3>市场情绪温度计</h3>
+          <div class="chart gauge" id="chart-emotion"></div>
+          <div class="emotion-extra" id="emotion-extra"></div>
+        </div>
+        <div class="panel">
+          <h3>连板梯队与龙头 <span class="muted">（按板数）</span></h3>
+          <div class="ladder-cards" id="ladder-cards"></div>
+        </div>
       </div>
       <div class="grid grid-2">
-        <div class="panel"><h3>大盘近60日</h3><div class="chart spark" id="chart-spark"></div></div>
-        <div class="panel"><h3>涨跌分布</h3><div class="chart dist" id="chart-dist"></div></div>
+        <div class="panel"><h3>上证指数近60日（MA20/MA60）</h3><div class="chart spark" id="chart-spark"></div></div>
+        <div class="panel"><h3>全市场涨跌分布梯度</h3><div class="chart dist" id="chart-dist"></div></div>
       </div>
     </section>
 
+    <!-- 工作区三：主线攻防 -->
     <section class="ws">
       <h2 class="ws-title">三 · 主线攻防（行业 → 个股）</h2>
       <div class="grid grid-3">
@@ -47,12 +63,30 @@
         <div class="panel"><h3>概念资金流 Top</h3>
           <div class="table-wrap short"><table id="concept-table"></table></div></div>
       </div>
-      <div class="panel"><h3>强势股 Top（60日新高/多板）</h3>
+      <div class="panel"><h3>强势股 Top（最新价/涨停统计/换手）</h3>
         <div class="table-wrap short"><table id="strong-table"></table></div></div>
     </section>
 
+    <!-- 工作区四：资金面 -->
     <section class="ws">
-      <h2 class="ws-title">四 · 复盘笔记</h2>
+      <h2 class="ws-title">四 · 资金面（杠杆与外资）</h2>
+      <div class="panel"><h3>两融趋势（左轴融资 / 右轴融券）</h3>
+        <div class="chart spark" id="chart-margin" style="height:220px"></div>
+        <div class="cards" id="capital-cards"></div>
+      </div>
+      <div class="grid grid-3">
+        <div class="panel"><h3>融资净买入 Top10</h3>
+          <div class="table-wrap short"><table id="fin-buy-table"></table></div></div>
+        <div class="panel"><h3>融券卖出 Top10</h3>
+          <div class="table-wrap short"><table id="fin-sell-table"></table></div></div>
+        <div class="panel"><h3>北向资金活跃成交 Top10</h3>
+          <div class="table-wrap short"><table id="north-table"></table></div></div>
+      </div>
+    </section>
+
+    <!-- 工作区五：复盘笔记 -->
+    <section class="ws">
+      <h2 class="ws-title">五 · 复盘笔记</h2>
       <div class="grid grid-2">
         <div class="panel"><h3>自动复盘</h3><div id="review-qa" class="qa"></div></div>
         <div class="panel"><h3>我的笔记</h3>
@@ -63,14 +97,6 @@
             <button class="mini-btn" id="note-export">导出 .md</button>
           </div>
         </div>
-      </div>
-    </section>
-
-    <section class="ws">
-      <h2 class="ws-title">资金补充</h2>
-      <div class="grid grid-2">
-        <div class="panel"><h3>两融余额（近20日）</h3><div class="chart spark" id="chart-margin"></div></div>
-        <div class="panel"><h3>主力/两融概览</h3><div class="cards" id="capital-cards"></div></div>
       </div>
     </section>
   </main>

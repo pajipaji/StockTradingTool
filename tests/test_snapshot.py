@@ -85,3 +85,20 @@ def test_sanitizes_non_finite_floats(tmp_path: Path):
     assert "Infinity" not in text
     saved = json.loads(text, parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)))
     assert saved["src"] == {"x": None, "y": None, "z": None, "ok": 1.5}
+
+
+def test_turnover_ma(tmp_path):
+    import json
+    from backend.services.snapshot import build_snapshot
+    for i, total in enumerate([100.0, 110.0, 120.0, 130.0, 140.0], start=20):
+        d = f"2026-09-{i:02d}"
+        (tmp_path / f"{d}.json").write_text(json.dumps(
+            {"date": d, "sources": {}, "a_index": {"turnover": {"total": total}}}), encoding="utf-8")
+    def idx():
+        return {"turnover": {"total": 150.0, "sh": 1, "sz": 1, "unit": "亿元", "notes": []}}
+    snap = build_snapshot({"a_index": idx}, tmp_path, date="2026-09-30")
+    t = snap["a_index"]["turnover"]
+    assert t["prev_total"] == 140.0 and t["delta"] == 10.0
+    # 可用总额 [100,110,120,130,140,150] 共6天 -> ma5=mean(110..150)=130.0
+    assert t["ma5"] == 130.0
+    assert t["ma10"] is None
