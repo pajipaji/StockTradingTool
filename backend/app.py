@@ -64,6 +64,15 @@ def build_app(data_dir: Path | None = None, fetchers: dict | None = None) -> Fas
         return FileResponse(FRONTEND_DIR / "index.html")
 
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+    @app.middleware("http")
+    async def _no_cache(request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path == "/" or path.startswith("/static"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+        return response
+
     return app
 
 

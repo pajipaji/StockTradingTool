@@ -23,3 +23,9 @@ def test_all_sources_failed_returns_502(tmp_path: Path):
         raise RuntimeError("down")
     client = TestClient(build_app(data_dir=tmp_path, fetchers={"a_index": boom}))
     assert client.get("/api/snapshot").status_code == 502
+
+
+def test_html_no_cache(tmp_path: Path):
+    client = TestClient(build_app(data_dir=tmp_path, fetchers={"a_index": lambda: {}}))
+    r = client.get("/")
+    assert r.headers.get("cache-control") == "no-store, max-age=0"
