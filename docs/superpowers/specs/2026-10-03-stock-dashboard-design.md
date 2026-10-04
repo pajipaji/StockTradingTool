@@ -680,7 +680,7 @@ pip3 install --user fastapi "uvicorn[standard]" pytest
 | `units.to_yi/pct` | 金额→亿元、数值规整；对 NaN 返回 `None`（保证 JSON 合法） |
 | `logging` | 控制台 + `backend/data/logs/app.log` |
 
-## 35. 数据源接口清单（已注册分区共 24 个唯一接口；另有 2 个未注册，见 §38）
+## 35. 数据源接口清单（已注册分区共 25 个唯一接口；另有 2 个未注册，见 §38）
 
 ### 分区① `overseas` 外围风向（6 个接口）
 | akshare 接口 | 参数 | 用途 |
@@ -738,6 +738,8 @@ pip3 install --user fastapi "uvicorn[standard]" pytest
 | `stock_zh_index_daily` | `sh000001` | 最近交易日 |
 | `stock_margin_detail_sse` | `date` | 个股融资明细 → 融资净买入 Top10、融券卖出 Top10 |
 | `stock_zh_a_spot` | — | 给融资/融券明细关联最新价/涨跌幅（缓存复用） |
+| `stock_profile_cninfo` | `symbol`（逐股） | 融资/融券 Top 个股的**所属行业**（巨潮行业，仅 A 股） |
+| `stock_fund_flow_concept` | `即时` | 概念领涨股反查 → 个股**所属概念**（best-effort，覆盖有限；与 `sector_flow` 共用缓存） |
 
 ## 36. 快照逻辑（`backend/services/snapshot.py`）
 
@@ -753,9 +755,9 @@ pip3 install --user fastapi "uvicorn[standard]" pytest
 - 路由：`GET /`（index.html，**no-store**）、`GET /api/snapshot`、`POST /api/refresh`、`GET /healthz`、`/static/*`（**no-store**）；全部源失败与部分失败语义见 §7。
 - 前端 5 个工作区（`frontend/app.js`）：
   1. **盘前外围映射**：外围指数（分「股市与期指」「港股/大宗/汇率」两组）+ 美股 GICS 行业映射表。
-  2. **盘中/复盘 大局与情绪**：资金水位与交易风格（含 **今日风格偏好市值梯度条** 沪深300/创业板指/中证1000/国证2000）+ 情绪温度计（炸板率/突破新高/赚钱效应）+ 连板梯队与龙头（带股名）+ 上证近60日(MA20/MA60) + 涨跌分布。
+  2. **盘中/复盘 大局与情绪**：资金水位与交易风格（含 **今日风格偏好市值梯度条** 沪深300（大盘蓝筹）/创业板指（成长科技）/中证1000（小盘题材）/微盘股（极致小票，数据取国证2000代理））+ 情绪温度计（炸板率/突破新高/赚钱效应）+ 连板梯队与龙头（带股名）+ 上证近60日(MA20/MA60) + 涨跌分布。
   3. **主线攻防**：行业榜 → 点击 → 该行业涨停/强势个股 + 概念资金流 Top + 强势股 Top。
-  4. **资金面**：两融双轴折线 + 概览卡 + 融资净买入/融券卖出/北向 三表。
+  4. **资金面**：两融双轴折线 + 概览卡（两融总余额/融资净买入/融券余额）+ **融资净买入 Top10 与 融券卖出 Top10 两表**；列 = 代码/名称/最新价/涨跌幅/融资净买入(或融券卖出量)/**所属行业/所属概念**。（原「北向活跃成交 Top10」模块已移除。）
   5. **复盘笔记**：自动三问三答 + Markdown 笔记（localStorage 保存 + 导出 .md）。
 - 顶栏：交易日 · 两市成交额(放缩量) · 沪深比+风格 · 情绪温度 · 数据源 x/7 · 重新抓取。
 
@@ -763,14 +765,15 @@ pip3 install --user fastapi "uvicorn[standard]" pytest
 
 - **未注册（代码保留）**：`backend/fetchers/sw_industry.py`（`index_realtime_sw`、`index_component_sw`）——被 `sector_flow` 取代且较慢，未加入 `DEFAULT_FETCHERS`。
 - **东财 `clist/get` 批量实时类（被 WAF 硬封，弃用）**：`stock_zh_a_spot_em`、`stock_us_spot_em`、`stock_zh_index_spot_em`、`stock_board_industry_name_em`、`stock_zt_pool_*_em`(实时列表口径) 等 → 改用新浪/同花顺/乐咕/交易所与东财 `push2ex`/`datacenter`。
-- **北向个股停更（返回 None）**：`stock_hsgt_hold_stock_em`、`stock_hsgt_stock_statistics_em`、`stock_hsgt_individual_detail_em`、`stock_hsgt_board_rank_em` → 界面占位「已停止披露」。
+- **北向个股停更（返回 None）**：`stock_hsgt_hold_stock_em`、`stock_hsgt_stock_statistics_em`、`stock_hsgt_individual_detail_em`、`stock_hsgt_board_rank_em` → **相关界面已移除**（原「北向资金活跃成交 Top10」表与北向概览卡已删除）。
 - **无稳定源**：离岸人民币 CNH（用中行美元代理）、微盘股指数（用国证2000代理）、纳斯达克中国金龙 HXC（用恒生科技代理）。
 
 ## 39. 测试与版本
 
 - 离线单元测试：`python3 -m pytest`（默认 `-m "not network"`）→ **49 passed**，零联网、约 1s。
 - 联网冒烟：`python3 -m pytest -m network`（真实抓取 a_index）。
-- 已提交历史：`7bbb706`(v3) → `3884a91`(tag v5, v4/v5) → `ac69a43`(外围分组+风格条) → `6a516b0`(禁缓存修复)。
+- 已提交历史：`7bbb706`(v3) → `3884a91`(tag v5, v4/v5) → `ac69a43`(外围分组+风格条) → `6a516b0`(禁缓存修复) → `cbfb6a2`(**tag v5.2**，资金面改造+行业概念列+本现状总览)。
 
-## 40. v6 修订记录
-- 2026-10-04 v6：新增「程序现状总览」——26 个接口清单（按分区/参数/用途）、网络层、快照逻辑、API/前端 5 工作区、未注册与不可用接口、测试与版本。
+## 40. 修订记录
+- 2026-10-04 v6：新增「程序现状总览」——接口清单（按分区/参数/用途）、网络层、快照逻辑、API/前端 5 工作区、未注册与不可用接口、测试与版本。
+- 2026-10-04 v6.1（tag v5.2）：移除北向活跃成交 Top10 模块；`capital` 新增 `stock_profile_cninfo`（所属行业）与 `stock_fund_flow_concept` 反查（所属概念，best-effort）；融资/融券 Top10 表增列；风格偏好梯度条补备注（微盘股取国证2000代理）。
