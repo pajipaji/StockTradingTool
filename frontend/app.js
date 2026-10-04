@@ -80,23 +80,23 @@ function renderMarket(s){
     card("涨停/跌停", `${b.limit_up??"--"}/${b.limit_down??"--"}`, "");
 }
 const STYLE_INDICES = [
-  ["sh000300", "沪深300"],
-  ["sz399006", "创业板指"],
-  ["sh000852", "中证1000"],
-  ["sz399303", "国证2000"],
+  ["sh000300", "沪深300", "大盘蓝筹"],
+  ["sz399006", "创业板指", "成长科技"],
+  ["sh000852", "中证1000", "小盘题材"],
+  ["sz399303", "微盘股", "极致小票"],
 ];
 function renderStyle(a){
   const box=document.getElementById("style-bars");
   if(!box) return;
   if(a.error){ box.innerHTML=err(a.error); return; }
   const by={}; (a.indices||[]).forEach(i=>by[i.code]=i);
-  const rows=STYLE_INDICES.map(([code,label])=>({label, c:num((by[code]||{}).change_pct)}));
+  const rows=STYLE_INDICES.map(([code,label,desc])=>({label,desc, c:num((by[code]||{}).change_pct)}));
   const max=Math.max(0.01, ...rows.map(r=>Math.abs(r.c||0)));
   const big=rows[0].c, small=rows[rows.length-1].c;
   box.innerHTML=rows.map(r=>{
     const w = r.c==null ? 0 : Math.max(3, Math.round(Math.abs(r.c)/max*100));
     const color = r.c>0?"#ff4d4f":(r.c<0?"#22c55e":"#8b93a7");
-    return `<div class="style-row"><span class="lbl">${esc(r.label)}</span>
+    return `<div class="style-row"><span class="lbl">${esc(r.label)}<span class="lbl-desc">（${esc(r.desc)}）</span></span>
       <span class="bar-track"><span class="bar-fill" style="width:${w}%;background:${color}"></span></span>
       <span class="pct ${cls(r.c)}">${fmtPct(r.c)}</span></div>`;
   }).join("") +
@@ -244,8 +244,7 @@ function renderCapital(snap){
   box.innerHTML =
     card("两融总余额", fmtYi(s.margin_total), "") +
     card("融资净买入", d===null?"--":`${d>0?"+":""}${fmtYi(Math.abs(d))}`, "较前一日", cls(d)) +
-    card("融券余额", (s.margin_history&&s.margin_history.length)?fmtYi(s.margin_history.at(-1).sec_balance):"--", "") +
-    card("北向(个股)", "已停止披露", "");
+    card("融券余额", (s.margin_history&&s.margin_history.length)?fmtYi(s.margin_history.at(-1).sec_balance):"--", "");
 
   const h=s.margin_history||[];
   if(h.length) chart("chart-margin").setOption({
@@ -259,16 +258,13 @@ function renderCapital(snap){
     ]
   });
   const trow=(x,last)=>`<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${fmt(x.price)}</td>
-    <td class="${cls(x.change_pct)}">${fmtPct(x.change_pct)}</td><td>${fmt(last==="sec_sell"?x.sec_sell:x.net_buy)}</td></tr>`;
-  const buy=document.getElementById("fin-buy-table"), sell=document.getElementById("fin-sell-table"), north=document.getElementById("north-table");
-  buy.innerHTML=`<thead><tr><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>融资净买入(亿)</th></tr></thead><tbody>`+
+    <td class="${cls(x.change_pct)}">${fmtPct(x.change_pct)}</td><td>${fmt(last==="sec_sell"?x.sec_sell:x.net_buy)}</td>
+    <td class="muted">${esc(x.industry||"--")}</td><td class="muted">${esc(x.concept||"--")}</td></tr>`;
+  const buy=document.getElementById("fin-buy-table"), sell=document.getElementById("fin-sell-table");
+  buy.innerHTML=`<thead><tr><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>融资净买入(亿)</th><th>所属行业</th><th>所属概念</th></tr></thead><tbody>`+
     (s.fin_buy_top||[]).map(x=>trow(x,"net_buy")).join("")+`</tbody>`;
-  sell.innerHTML=`<thead><tr><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>融券卖出量</th></tr></thead><tbody>`+
+  sell.innerHTML=`<thead><tr><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>融券卖出量</th><th>所属行业</th><th>所属概念</th></tr></thead><tbody>`+
     (s.fin_sell_top||[]).map(x=>trow(x,"sec_sell")).join("")+`</tbody>`;
-  const nrows=(s.northbound_active_top||[]).length
-    ? (s.northbound_active_top||[]).map(x=>`<tr><td>${esc(x.code||"")}</td><td>${esc(x.name||"")}</td><td>${fmt(x.price)}</td><td class="${cls(x.change_pct)}">${fmtPct(x.change_pct)}</td><td>${fmt(x.net_buy)}</td></tr>`).join("")
-    : `<tr><td colspan="5" class="muted">北向个股活跃成交数据已停止披露</td></tr>`;
-  north.innerHTML=`<thead><tr><th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>净成交(亿)</th></tr></thead><tbody>${nrows}</tbody>`;
 }
 
 /* 笔记 */

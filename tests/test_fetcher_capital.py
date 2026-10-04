@@ -140,6 +140,11 @@ def test_margin_split_and_fin_buy(monkeypatch):
     monkeypatch.setattr(cap.ak,"stock_margin_szse", lambda: (_ for _ in ()).throw(RuntimeError("x")))
     monkeypatch.setattr(cap.ak,"stock_margin_detail_sse", lambda **k: det)
     monkeypatch.setattr(cap.ak,"stock_zh_a_spot", lambda **k: spot)
+    monkeypatch.setattr(cap.ak,"stock_profile_cninfo", lambda symbol: pd.DataFrame([{"所属行业": "生物制品" if symbol == "688185" else "白酒"}]))
+    monkeypatch.setattr(cap.ak,"stock_fund_flow_concept", lambda symbol: pd.DataFrame([
+        {"行业": "创新药", "领涨股": "康希诺"},
+        {"行业": "消费", "领涨股": "其他"},
+    ]))
     out = cap.fetch_capital()
     m = out["margin_history"][-1]
     assert m["fin_balance"] == 13000.0 and m["sec_balance"] == 120.0
@@ -148,6 +153,8 @@ def test_margin_split_and_fin_buy(monkeypatch):
     assert out["fin_buy_top"][0]["net_buy"] == 3.0
     assert out["fin_buy_top"][0]["price"] == 28.5
     assert out["fin_buy_top"][0]["change_pct"] == 3.2
+    conn = next(x for x in out["fin_buy_top"] if x["name"] == "康希诺")
+    assert conn["industry"] == "生物制品" and conn["concept"] == "创新药"
     assert out["fin_sell_top"]
     assert out["fin_sell_top"][0]["name"] == "贵州茅台"
     assert out["fin_sell_top"][0]["sec_sell"] == 200000.0

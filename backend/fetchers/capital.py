@@ -50,6 +50,39 @@ def _spot_map() -> dict:
     return m
 
 
+def _is_stock(code: str) -> bool:
+    return len(code) == 6 and code[0] in "03468"
+
+
+def _industry_map(codes) -> dict:
+    m = {}
+    for code in codes:
+        try:
+            df = fetch(ak.stock_profile_cninfo, symbol=code, source="cninfo")
+            if df is not None and not df.empty:
+                ind = str(df.iloc[0].get("所属行业") or "").strip()
+                m[code] = ind or None
+            else:
+                m[code] = None
+        except Exception:
+            m[code] = None
+    return m
+
+
+def _concept_map() -> dict:
+    try:
+        cdf = fetch(ak.stock_fund_flow_concept, symbol="即时", source="ths")
+    except Exception:
+        return {}
+    m = {}
+    for _, r in cdf.iterrows():
+        leader = str(r.get("领涨股", "")).strip()
+        name = str(r.get("行业", "")).strip()
+        if leader and name and leader not in m:
+            m[leader] = name
+    return m
+
+
 def fetch_capital() -> dict:
     notes = []
     as_of = None
@@ -112,6 +145,27 @@ def fetch_capital() -> dict:
                                          "sec_balance": _num(r.get("融券余量"), 0)})
     except Exception as exc:
         notes.append(f"两融明细获取失败: {exc}")
+
+    codes = sorted({x["code"] for x in (fin_buy_top + fin_sell_top) if _is_stock(x["code"])})
+    if codes:
+        try:
+            ind_map = _industry_map(codes)
+        except Exception:
+            ind_map = {}
+        con_map = _concept_map()
+        for lst in (fin_buy_top, fin_sell_top):
+            for x in lst:
+                if _is_stock(x["code"]):
+                    x["industry"] = ind_map.get(x["code"])
+                    x["concept"] = con_map.get(x["name"])
+                else:
+                    x["industry"] = None
+                    x["concept"] = None
+    else:
+        for lst in (fin_buy_top, fin_sell_top):
+            for x in lst:
+                x["industry"] = None
+                x["concept"] = None
 
     northbound_active_top = []
     notes.append("北向个股活跃成交数据已停止披露")

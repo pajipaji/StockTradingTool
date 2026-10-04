@@ -32,9 +32,10 @@ def test_index_v4_structure():
 def test_index_v5_structure():
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     for marker in ('id="us-sector-table"', 'id="ladder-cards"', 'id="emotion-extra"',
-                   'id="fin-buy-table"', 'id="fin-sell-table"', 'id="north-table"',
+                   'id="fin-buy-table"', 'id="fin-sell-table"',
                    'id="style-bars"', 'id="overseas-market"', 'id="overseas-other"'):
         assert marker in html, marker
+    assert 'id="north-table"' not in html
     assert 'id="premarket"' not in html
 
 
