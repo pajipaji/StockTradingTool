@@ -102,3 +102,47 @@ def test_turnover_ma(tmp_path):
     # 可用总额 [100,110,120,130,140,150] 共6天 -> ma5=mean(110..150)=130.0
     assert t["ma5"] == 130.0
     assert t["ma10"] is None
+
+
+def test_build_snapshot_resets_fetch_cache(tmp_path):
+    """每次构建快照应清空 fetch 进程缓存，确保‘重新抓取’拿到最新数据。"""
+    import backend.core.fetch as fetchmod
+    from backend.core.ratelimit import RateLimiter
+    from backend.services.snapshot import build_snapshot
+
+    fetchmod.LIMITER = RateLimiter(min_interval=0.0)
+    calls = {"n": 0}
+
+    def underlying():
+        calls["n"] += 1
+        return calls["n"]
+
+    def fetcher():
+        return {"v": fetchmod.fetch(underlying, source="test")}
+
+    a = build_snapshot({"a_index": fetcher}, tmp_path, date="2026-09-01")
+    b = build_snapshot({"a_index": fetcher}, tmp_path, date="2026-09-02")
+    assert calls["n"] == 2            # 两次构建各抓一次（缓存被清）
+    assert a["a_index"]["v"] != b["a_index"]["v"]
+
+
+def test_fetch_cache_dedups_within_one_build(tmp_path):
+    """同一次构建内，相同调用应命中缓存只抓一次。"""
+    import backend.core.fetch as fetchmod
+    from backend.core.ratelimit import RateLimiter
+    from backend.services.snapshot import build_snapshot
+
+    fetchmod.LIMITER = RateLimiter(min_interval=0.0)
+    calls = {"n": 0}
+
+    def underlying():
+        calls["n"] += 1
+        return calls["n"]
+
+    def fetcher():
+        return {"a": fetchmod.fetch(underlying, source="test"),
+                "b": fetchmod.fetch(underlying, source="test")}
+
+    snap = build_snapshot({"a_index": fetcher}, tmp_path, date="2026-09-03")
+    assert calls["n"] == 1
+    assert snap["a_index"]["a"] == snap["a_index"]["b"] == 1

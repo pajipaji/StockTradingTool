@@ -6,6 +6,7 @@ import math
 import os
 from pathlib import Path
 
+from backend.core import fetch as fetch_core
 from backend.core.logging import get_logger
 
 logger = get_logger("snapshot")
@@ -49,6 +50,7 @@ def build_snapshot(fetchers: dict, data_dir: Path, date: str | None = None) -> d
     date = date or _today()
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
+    fetch_core.reset_cache()
     snapshot = {
         "date": date,
         "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
